@@ -559,6 +559,12 @@ setMethod(
             nmatched <- sum(!is.na(map$x[, 1L]))
             res@matches$presence_ratio[i] <- nmatched /
                 nrow(map$y)
+#-----------new lines start ----------------------------------------------------
+            res@matches$presence_query_ratio[i] <- nmatched/
+              nrow(peaksData(query[res@matches$query_idx[i]])[[1L]])
+            res@matches$presence_target_ratio[i] <- nmatched/
+              nrow(peaksData(target[res@matches$target_idx[i]])[[1L]])
+#----------new lines end ------------------------------------------------------------
             res@matches$matched_peaks_count[i] <- nmatched
         }
         if (length(param@THRESHFUN_REVERSE))
