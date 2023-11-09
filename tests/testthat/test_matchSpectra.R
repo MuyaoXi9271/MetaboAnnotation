@@ -42,29 +42,23 @@ test_that(".compare_spectra, .compare_spectra_without_precursor work", {
     prm <- CompareSpectraParam(requirePrecursor = FALSE,
                                THRESHFUN = function(x) x > 0.3)
 
-    res <- .match_spectra(pest_ms2, minimb, prm)
+    res <- .match_spectra(pest_ms2, minimb, prm, BPPARAM = SerialParam())
     res_2 <- .match_spectra_without_precursor(pest_ms2, minimb, prm)
-    res_3 <- .match_spectra_parallel(pest_ms2, minimb, prm, SerialParam())
     expect_equal(res@matches, res_2@matches)
-    expect_equal(res@matches, res_3@matches)
 
     ## returns integer.
     prm <- CompareSpectraParam(requirePrecursor = FALSE,
                                THRESHFUN = function(x) which.max(x))
-    res <- .match_spectra(pest_ms2, minimb, prm)
+    res <- .match_spectra(pest_ms2, minimb, prm, BPPARAM = SerialParam())
     res_2 <- .match_spectra_without_precursor(pest_ms2, minimb, prm)
-    res_3 <- .match_spectra_parallel(pest_ms2, minimb, prm, SerialParam())
     expect_equal(res@matches, res_2@matches)
-    expect_equal(res@matches, res_3@matches)
 
     ## no matches
     prm <- CompareSpectraParam(requirePrecursor = FALSE,
                                THRESHFUN = function (x) which(x > 20))
-    res <- .match_spectra(pest_ms2, minimb, prm)
+    res <- .match_spectra(pest_ms2, minimb, prm, BPPARAM = SerialParam())
     res_2 <- .match_spectra_without_precursor(pest_ms2, minimb, prm)
-    res_3 <- .match_spectra_parallel(pest_ms2, minimb, prm, SerialParam())
     expect_equal(res@matches, res_2@matches)
-    expect_equal(res@matches, res_3@matches)
 })
 
 test_that(".get_matches_spectra, matchSpectra,CompareSpectraParam works", {
@@ -79,7 +73,7 @@ test_that(".get_matches_spectra, matchSpectra,CompareSpectraParam works", {
     spectraNames(mb2) <- seq_along(mb2)
     res <- .get_matches_spectra(
         2, pest_ms2, mb2,
-        MetaboAnnotation:::.compare_spectra_parms_list(csp),
+        .compare_spectra_parms_list(csp),
         csp@THRESHFUN, precMz = csp@requirePrecursor,
         precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2))
     expect_true(is.data.frame(res))
@@ -131,6 +125,54 @@ test_that(".get_matches_spectra, matchSpectra,CompareSpectraParam works", {
                                toleranceRt = 0)
     res <- matchSpectra(pest_ms2, mb2, csp)
     expect_equal(res@matches$target_idx, c(70, 73, 75, 47, 51, 53, 59))
+
+    ## Alternative retention time column.
+    csp <- CompareSpectraParam()
+    mb2 <- minimb
+    mb2$rtime <- 361
+    spectraNames(mb2) <- seq_along(mb2)
+    res <- .get_matches_spectra(
+        2, pest_ms2, mb2,
+        .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = csp@requirePrecursor,
+        precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2),
+        toleranceRt = rep(1, length(pest_ms2)),
+        percentRt = rep(0, length(pest_ms2)))
+    expect_equal(res$query_idx, c(2, 2, 2))
+    expect_equal(res$target_idx, c(70, 73, 75))
+
+    expect_error(.get_matches_spectra(
+        2, pest_ms2, mb2,
+        .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = csp@requirePrecursor,
+        precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2),
+        toleranceRt = rep(1, length(pest_ms2)),
+        percentRt = rep(0, length(pest_ms2)),
+        query_rt_col = "other"), "not available")
+
+    expect_error(.get_matches_spectra(
+        2, pest_ms2, mb2,
+        .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = csp@requirePrecursor,
+        precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2),
+        toleranceRt = rep(1, length(pest_ms2)),
+        percentRt = rep(0, length(pest_ms2)),
+        target_rt_col = "other"), "not available")
+
+    pest_ms2$other <- pest_ms2$rtime
+    mb2$other <- mb2$rtime
+    mb2$rtime <- 900
+
+    res <- .get_matches_spectra(
+        2, pest_ms2, mb2,
+        .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = csp@requirePrecursor,
+        precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2),
+        toleranceRt = rep(1, length(pest_ms2)),
+        percentRt = rep(0, length(pest_ms2)),
+        query_rt_col = "other", target_rt_col = "other")
+    expect_equal(res$query_idx, c(2, 2, 2))
+    expect_equal(res$target_idx, c(70, 73, 75))
 })
 
 test_that("MatchForwardReverseParam works", {
@@ -186,4 +228,8 @@ test_that("matchSpectra,Spectra,CompDb works", {
     expect_equal(length(res), 13)
     expect_s4_class(target(res), "Spectra")
     expect_equal(length(target(res)), 70)
+
+    expect_error(
+        matchSpectra(pest_ms2, cdb, CompareSpectraParam(toleranceRt = 1),
+                     rtColname = c("other", "other")), "not available")
 })

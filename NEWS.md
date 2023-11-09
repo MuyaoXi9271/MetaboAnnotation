@@ -1,3 +1,69 @@
+# MetaboAnnotation 1.7
+
+## Changes in 1.7.1
+
+- Add examples and a section to the vignette explaining the use of
+  `createStandardMixes`.
+
+# MetaboAnnotation 1.5
+
+## Changes in 1.5.9
+
+- Addition of global function `createStandardMixes`.
+
+## Changes in 1.5.8
+
+- Fix `.randomize_grouping` to prevent collapsing of matrix when input in a
+  single column.
+
+## Changes in 1.5.7
+
+- Add function `.group_standards_iteration` and `.randomize_grouping` to allow
+  iteration through matrix of standards and group them if they are dissimilar
+  enough.
+
+## Changes in 1.5.6
+
+- Fix issue in the vignette. Thanks @RemyDeB for the fix.
+
+## Changes in 1.5.5
+
+- Update objects to the new definitions in `Spectra` version 1.11.10.
+
+## Changes in 1.5.4
+
+- Add functions `targetIndex` and `queryIndex` to extract the indices of the
+  matched pairs query-target.
+- Add examples and a section to the vignette explaining their use.
+
+## Changes in 1.5.3
+
+- Add support to `matchValues` for matching between `data.frame` and `Spectra`
+  objects.
+
+## Changes in 1.5.2
+
+- Fix vignette, examples and unit tests using `QFeatures`.
+- Import `query` from `AnnotationHub`.
+
+## Changes in 1.5.1
+
+- Add possibility to select the spectra variable for retention time matching in
+  `matchSpectra` (issue
+  [#98](https://github.com/rformassspectrometry/MetaboAnnotation/issues/98)).
+
+# MetaboAnnotation 1.3
+
+## Changes in 1.3.2
+
+- Add `mzR` as suggested package to ensure package vignettes can be built.
+
+## Changes in 1.3.1
+
+- Small changes in `matchSpectra` to avoid unnecessary object creation.
+- Use `backendBpparam` to disable parallel processing of `matchSpectra` if the
+  backend does not support it.
+
 # MetaboAnnotation 1.1
 
 ## Changes in 1.1.6

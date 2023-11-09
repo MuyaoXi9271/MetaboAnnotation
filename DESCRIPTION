@@ -1,6 +1,6 @@
 Package: MetaboAnnotation
 Title: Utilities for Annotation of Metabolomics Data
-Version: 1.3.0
+Version: 1.7.1
 Description:
     High level functions to assist in annotation of (metabolomics) data sets.
     These include functions to perform simple tentative annotations based on
@@ -26,6 +26,10 @@ Authors@R:
              email = "carolin-elisabeth.huber@ufz.de",
              role = c("aut"),
              comment = c(ORCID = "0000-0002-9355-8948")),
+      person(given = "Philippine", family = "Louail",
+             email = "philippine.louail@eurac.edu",
+             role = c("aut"),
+             comment = c(ORCID = "0009-0007-5429-6846")),
       person(given = "Nir", family = "Shachaf",
              email = "nir.shachaf@weizmann.ac.il",
 	     role = "ctb"))
@@ -38,10 +42,11 @@ Imports:
     ProtGenerics,
     methods,
     S4Vectors,
-    Spectra (>= 1.7.2),
+    Spectra (>= 1.11.10),
     BiocParallel,
     SummarizedExperiment,
     QFeatures,
+    AnnotationHub,
     graphics,
     CompoundDb
 Suggests:
@@ -54,7 +59,8 @@ Suggests:
     shiny,
     shinyjs,
     DT,
-    AnnotationHub
+    microbenchmark,
+    mzR
 Enhances:
     RMariaDB,
     RSQLite
@@ -64,7 +70,7 @@ BugReports: https://github.com/RforMassSpectrometry/MetaboAnnotation/issues
 URL: https://github.com/RforMassSpectrometry/MetaboAnnotation
 biocViews: Infrastructure, Metabolomics, MassSpectrometry
 Roxygen: list(markdown=TRUE)
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Collate:
     'AllClassUnions.R'
     'AllGenerics.R'
@@ -72,6 +78,7 @@ Collate:
     'CompDbSource.R'
     'Matched.R'
     'MatchedSpectra.R'
+    'group_standards.R'
     'hidden-aliases.R'
     'matchFormula.R'
     'matchSpectra.R'

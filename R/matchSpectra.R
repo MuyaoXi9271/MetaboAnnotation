@@ -19,6 +19,9 @@
 #' with the reference or connection information to a supported annotation
 #' resource).
 #'
+#' Some notes on performance and information on parallel processing are
+#' provided in the vignette.
+#'
 #' Currently supported parameter objects defining the matching are:
 #'
 #' - `CompareSpectraParam`: the *generic* parameter object allowing to set all
@@ -70,7 +73,7 @@
 #'
 #' @param BPPARAM for `matchSpectra`: parallel processing setup (see the
 #'   `BiocParallel` package for more information). Parallel processing is
-#'   disabled by default.
+#'   disabled by default (with the default setting `BPPARAM = SerialParam()`).
 #'
 #' @param FUN `function` used to calculate similarity between spectra. Defaults
 #'   for `CompareSpectraParam` to [MsCoreUtils::ndotproduct()]. See
@@ -113,6 +116,12 @@
 #'   `requirePrecursorPeak = FALSE`. It is suggested to check first the
 #'   availability of the precursor m/z in `query`, as no match will be reported
 #'   for query spectra with missing precursor m/z.
+#'
+#' @param rtColname `character(2)` with the name of the spectra variable
+#'     containing the retention time information for compounds to be used in
+#'     retention time matching (only used if `toleranceRt` is not `Inf`).
+#'     It can also be `character(1)` if the two names are the same.
+#'     Defaults to `rtColname = c("rtime", "rtime")`.
 #'
 #' @param target for `matchSpectra`: [Spectra], [CompDb] or object extending
 #'   [CompAnnotationSource] (such as [CompDbSource]) with
@@ -227,6 +236,9 @@
 #' mtches
 #' matches(mtches)
 #'
+#' ## Note that parameter `rtColname` can be used to define different spectra
+#' ## variables with retention time information (such as retention indices etc).
+#'
 #' ## A `CompDb` compound annotation database could also be used with
 #' ## parameter `target`. Below we load the test `CompDb` database from the
 #' ## `CompoundDb` Bioconductor package.
@@ -315,10 +327,10 @@ CompareSpectraParam <- function(MAPFUN = joinPeaks, tolerance = 0, ppm = 5,
                                 requirePrecursorPeak = FALSE,
                                 THRESHFUN = function(x) which(x >= 0.7),
                                 toleranceRt = Inf, percentRt = 0, ...) {
-    new("CompareSpectraParam", MAPFUN = MAPFUN, tolerance = tolerance,
-        ppm = ppm, FUN = FUN, requirePrecursor = requirePrecursor[1L],
+    new("CompareSpectraParam", MAPFUN = force(MAPFUN), tolerance = tolerance,
+        ppm = ppm, FUN = force(FUN), requirePrecursor = requirePrecursor[1L],
         requirePrecursorPeak = requirePrecursorPeak[1L],
-        THRESHFUN = THRESHFUN, toleranceRt = toleranceRt,
+        THRESHFUN = force(THRESHFUN), toleranceRt = toleranceRt,
         percentRt = percentRt, dots = list(...))
 }
 
@@ -371,6 +383,8 @@ MatchForwardReverseParam <- function(MAPFUN = joinPeaks, tolerance = 0, ppm = 5,
 
 #' @importMethodsFrom Spectra spectraNames containsMz filterPrecursorMzRange
 #'
+#' @importMethodsFrom Spectra backendBpparam
+#'
 #' @rdname CompareSpectraParam
 #'
 #' @export
@@ -378,16 +392,26 @@ setMethod(
     "matchSpectra",
     signature(query = "Spectra", target = "Spectra",
               param = "CompareSpectraParam"),
-    function(query, target, param, BPPARAM = BiocParallel::SerialParam()) {
+    function(query, target, param, rtColname = c("rtime", "rtime"),
+             BPPARAM = BiocParallel::SerialParam()) {
+        BPPARAM <- .check_bpparam(query, target, BPPARAM)
         if (length(query) == 1 || param@requirePrecursor ||
             param@requirePrecursorPeak || any(is.finite(param@toleranceRt)) ||
-            any(param@percentRt != 0)) {
-            if (is(BPPARAM, "SerialParam"))
-                .match_spectra(query, target, param)
-            else .match_spectra_parallel(query, target, param, BPPARAM)
-        }
+            any(param@percentRt != 0))
+            .match_spectra(query, target, param, rtColname = rtColname, BPPARAM)
         else .match_spectra_without_precursor(query, target, param)
     })
+
+#' Returns SerialParam if any of the backends does not support parallel
+#' processing.
+#'
+#' @noRd
+.check_bpparam <- function(query, target, BPPARAM) {
+    BPPARAM <- backendBpparam(query, BPPARAM)
+    if (!is(BPPARAM, "SerialParam"))
+        BPPARAM <- backendBpparam(target, BPPARAM)
+    BPPARAM
+}
 
 #' @importClassesFrom CompoundDb CompDb
 #'
@@ -397,42 +421,16 @@ setMethod(
 setMethod(
     "matchSpectra", signature(query = "Spectra", target = "CompDb",
                               param = "Param"),
-    function(query, target, param, BPPARAM = BiocParallel::SerialParam()) {
-        matchSpectra(query, Spectra(target), param = param, BPPARAM = BPPARAM)
+    function(query, target, param, rtColname = c("rtime", "rtime"),
+             BPPARAM = BiocParallel::SerialParam()) {
+        matchSpectra(query, Spectra(target), param = param,
+                     rtColname = rtColname, BPPARAM = BPPARAM)
     })
 
-.match_spectra <- function(query, target, param) {
-    parms <- .compare_spectra_parms_list(param)
-    queryl <- length(query)
-    toleranceRt <- param@toleranceRt
-    percentRt <- param@percentRt
-    if (length(toleranceRt) == 1L)
-        toleranceRt <- rep(toleranceRt, queryl)
-    if (length(percentRt) == 1L)
-        percentRt <- rep(percentRt, queryl)
-    if (length(percentRt) != queryl || length(toleranceRt) != queryl)
-        stop("Length of 'toleranceRt' and 'percentRt' has to be either 1 or ",
-             "equal to the number of query spectra")
-    if (is.null(spectraNames(target)))
-        spectraNames(target) <- seq_along(target)
-    snames <- spectraNames(target)
-    res <- vector("list", queryl)
-    for (i in seq_len(queryl)) {
-        res[[i]] <- .get_matches_spectra(i, query, target, parms,
-                                         param@THRESHFUN,
-                                         param@requirePrecursor,
-                                         param@requirePrecursorPeak,
-                                         toleranceRt = toleranceRt,
-                                         percentRt = percentRt,
-                                         sn = snames)
-    }
-    maps <- do.call(rbind, res)
-    res <- MatchedSpectra(query, target, maps)
-    res@metadata <- list(param = param)
-    res
-}
-
-.match_spectra_parallel <- function(query, target, param, BPPARAM) {
+.match_spectra <- function(query, target, param,
+                           rtColname = c("rtime", "rtime"), BPPARAM) {
+    if (length(rtColname) != 2)
+        rtColname <- rep(rtColname[1L], 2)
     parms <- .compare_spectra_parms_list(param)
     queryl <- length(query)
     toleranceRt <- param@toleranceRt
@@ -456,11 +454,16 @@ setMethod(
                      precMzPeak = param@requirePrecursorPeak,
                      toleranceRt = toleranceRt,
                      percentRt = percentRt,
+                     query_rt_col = rtColname[1L],
+                     target_rt_col = rtColname[2L],
                      sn = snames, BPPARAM = BPPARAM)
-    maps <- do.call(rbind, maps)
-    res <- MatchedSpectra(query, target, maps)
-    res@metadata <- list(param = param)
-    res
+    maps <- do.call(rbind.data.frame, maps)
+    if (!nrow(maps))
+        maps <- data.frame(query_idx = integer(),
+                           target_idx = integer(),
+                           score = numeric())
+    .matched_spectra(query = query, target = target, matches = maps,
+                     metadata = list(param = param), validate = FALSE)
 }
 
 #' This version does not use a loop but performs the comparison all in one. It
@@ -481,25 +484,33 @@ setMethod(
     }
     else maps <- data.frame(query_idx = integer(), target_idx = integer(),
                             score = numeric())
-    res <- MatchedSpectra(query, target, maps)
-    res@metadata <- list(param = param)
-    res
+    .matched_spectra(query = query, target = target, matches = maps,
+                     metadata = list(param = param), validate = FALSE)
 }
 
-#' @importMethodsFrom Spectra filterRt rtime
+#' @importMethodsFrom Spectra filterRt rtime spectraData
+#'
+#' @importFrom MsCoreUtils between
+#'
+#' @return `data.frame` with matches or `NULL` (if not matches passed the
+#'     filter).
 #'
 #' @noRd
 .get_matches_spectra <- function(i, query, target, parlist, THRESHFUN, precMz,
                                  precMzPeak, toleranceRt = Inf,
-                                 percentRt = 0, sn) {
+                                 percentRt = 0, sn, query_rt_col = "rtime",
+                                 target_rt_col = "rtime") {
     qi <- query[i]
     if (is.finite(toleranceRt[i])) {
+        rt_qi <- spectraData(qi, query_rt_col)[, 1L]
         if (toleranceRt[i] == 0 && percentRt[i] == 0)
             trt <- 0.0000001
         else
-            trt <- toleranceRt[i] + rtime(qi) * percentRt[i] / 100
-        target <- filterRt(
-            target, rt = rtime(qi) + c(-trt, trt))
+            trt <- toleranceRt[i] + rt_qi * percentRt[i] / 100
+        if (target_rt_col != "rtime") {
+            rt_t <- spectraData(target, target_rt_col)[, 1L]
+            target <- target[between(rt_t, rt_qi + c(-trt, trt))]
+        } else target <- filterRt(target, rt = rt_qi + c(-trt, trt))
     }
     if (precMz) {
         pmz <- precursorMz(qi)
@@ -511,18 +522,18 @@ setMethod(
                                 ppm = parlist$ppm,
                                 tolerance = parlist$tolerance)]
     if (!length(target))
-        return(data.frame(query_idx = integer(),
-                          target_idx = integer(),
-                          score = numeric()))
+        return(NULL)
     cor <- base::do.call(compareSpectra,
-                         c(list(x = qi, y = target), parlist))
-    keep <- THRESHFUN(cor)
+                         c(list(x = qi, y = target, SIMPLIFY = FALSE), parlist))
+    keep <- THRESHFUN(as.vector(cor))
     if (is.logical(keep))
         keep <- which(keep)
     kl <- length(keep)
-    data.frame(query_idx = rep(i, kl),
-               target_idx = match(spectraNames(target)[keep], sn),
-               score = cor[keep])
+    if (kl)
+        data.frame(query_idx = rep(i, kl),
+                   target_idx = base::match(spectraNames(target)[keep], sn),
+                   score = cor[keep])
+    else NULL
 }
 
 #' @rdname CompareSpectraParam
@@ -536,9 +547,10 @@ setMethod(
     "matchSpectra",
     signature(query = "Spectra", target = "Spectra",
               param = "MatchForwardReverseParam"),
-    function(query, target, param, BPPARAM = BiocParallel::SerialParam()) {
+    function(query, target, param, rtColname = c("rtime", "rtime"),
+             BPPARAM = BiocParallel::SerialParam()) {
         res <- matchSpectra(query, target, as(param, "CompareSpectraParam"),
-                            BPPARAM = BPPARAM)
+                            rtColname = rtColname, BPPARAM = BPPARAM)
         ## Loop over the matches and assign additional stuff...
         nm <- nrow(res@matches)
         res@matches$reverse_score <- rep(NA_real_, nm)
