@@ -1,4 +1,32 @@
+# MetaboAnnotation 1.9
+
+## Changes in 1.9.1
+
+- Add parameter `scalePeaks` to `plotSpectraMirror` to allow scaling peak
+  intensities before plotting.
+
 # MetaboAnnotation 1.7
+
+## Changes in 1.7.5
+
+- Add parameter `addOriginalQueryIndex` to `matchSpectra()` that allows to add
+  an additional spectra variable to the `query` `Spectra` with the index in
+  the original object (issue #114).
+
+## Changes in 1.7.4
+
+- Import `setBackend()` generic from `ProtGenerics`.
+
+## Changes in 1.7.3
+
+- Add `SingleMatchParam` for `filterMatches` to allow selection of (at most) a
+  single match to a target element for each query element.
+- Add new methods `queryVariables` and `targetVariables` to extract the names
+  of variables (columns) of *query* and *target*.
+
+## Changes in 1.7.2
+
+- Update the `Spectra` objects within the package to the new versions.
 
 ## Changes in 1.7.1
 

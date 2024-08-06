@@ -13,17 +13,29 @@
 #' returned for each *query* spectrum with eventual duplicated entries (values)
 #' if the query spectrum matches more than one target spectrum.
 #'
-#' @section Creation and subsetting:
+#' @section Creation, subset and filtering:
 #'
-#' `MatchedSpectra` objects can be created with the `MatchedSpectra` function
-#' providing the `query` and `target` `Spectra` as well as a `data.frame` with
-#' the
+#' `MatchedSpectra` objects are the result object from the [matchSpectra()].
+#' While generally not needed, `MatchedSpectra` objects can also be created
+#' with the `MatchedSpectra` function providing the `query` and `target`
+#' `Spectra` objects as well as a `data.frame` with the *matches* between
+#' query and target elements. This data frame is expected to have columns
+#' `"query_idx"`, `"target_idx"` with the `integer` indices of query and
+#' target objects that are *matched* and a column `"score"` with a `numeric`
+#' score for the match.
+#'
+#' `MatchedSpectra` objects can be subset using:
 #'
 #' - `[` subset the `MatchedSpectra` selecting `query` spectra to keep with
 #'   parameter `i`. The `target` spectra will by default be returned as-is.
 #'
 #' - `pruneTarget` *cleans* the `MatchedSpectra` object by removing non-matched
 #'   target spectra.
+#'
+#' In addition, `MatchedSpectra` can be filtered with any of the filtering
+#' approaches defined for [Matched()] objects: [SelectMatchesParam()],
+#' [TopRankedMatchesParam()] or [ScoreThresholdParam()].
+#'
 #'
 #' @section Extracting data:
 #'
@@ -41,6 +53,10 @@
 #' - `length` returns the number of **query** spectra.
 #'
 #' - `matchedData` same as `spectraData` below.
+#'
+#' - `query` returns the *query* `Spectra`.
+#'
+#' - `queryVariables` returns the `spectraVariables` of *query*.
 #'
 #' - `spectraData` returns spectra variables from the query and/or target
 #'   `Spectra` as a `DataFrame`. Parameter `columns` allows to define which
@@ -62,7 +78,8 @@
 #'
 #' - `target` returns the *target* `Spectra`.
 #'
-#' - `query` returns the *query* `Spectra`.
+#' - `targetVariables` returns the `spectraVariables` of *target* (prefixed
+#'    with `"target_"`).
 #'
 #' - `whichTarget` returns an `integer` with the indices of the spectra in
 #'   *target* that match at least on spectrum in *query*.
@@ -79,8 +96,10 @@
 #'
 #' - `plotSpectraMirror`: creates a mirror plot between the query and each
 #'   matching target spectrum. Can only be applied to a `MatchedSpectra` with a
-#'   single query spectrum. Additional plotting parameters can be passed through
-#'   `...`.
+#'   single query spectrum. Setting parameter `scalePeaks = TRUE` will scale
+#'   the peak intensities per spectrum to a total sum of one for a better
+#'   graphical visualization. Additional plotting parameters can be passed
+#'   through `...`.
 #'
 #' - `setBackend`: allows to change the *backend* of both the query and target
 #'   [Spectra()] object. The function will return a `MatchedSpectra` object with
@@ -105,6 +124,10 @@
 #' @param name for `$`: the name of the spectra variable to extract.
 #'
 #' @param object `MatchedSpectra` object.
+#'
+#' @param scalePeaks for `plotSpectraMirror`: `logical(1)` if peak intensities
+#'   (per spectrum) should be scaled to a total sum of one (per spectrum) prior
+#'   to plotting.
 #'
 #' @param spectraVariables for `addProcessing`: `character` with additional
 #'   spectra variables that should be passed along to the function defined
@@ -310,6 +333,16 @@ setMethod("spectraVariables", "MatchedSpectra", function(object) {
     c(svq, paste0("target_", svt), cns[!cns %in% c("query_idx", "target_idx")])
 })
 
+#' @rdname MatchedSpectra
+setMethod("queryVariables", "MatchedSpectra", function(object) {
+    spectraVariables(query(object))
+})
+
+#' @rdname MatchedSpectra
+setMethod("targetVariables", "MatchedSpectra", function(object) {
+    paste0("target_", spectraVariables(target(object)))
+})
+
 #' @exportMethod colnames
 #'
 #' @rdname MatchedSpectra
@@ -378,23 +411,31 @@ setMethod(
 #'
 #' @importFrom graphics par
 #'
+#' @importFrom grDevices n2mfrow
+#'
+#' @importFrom Spectra scalePeaks
+#'
 #' @export
-setMethod("plotSpectraMirror", "MatchedSpectra", function(x, xlab = "m/z",
-                                                          ylab = "intensity",
-                                                          main = "", ...) {
-    if (length(query(x)) != 1)
-        stop("Length of 'query(x)' has to be 1.")
-    y <- x@target[x@matches$target_idx]
-    if (!length(y))
-        y <- Spectra(DataFrame(msLevel = 2L))
-    nr <- sqrt(max(length(y), 1))
-    par(mfrow = c(floor(nr), ceiling(nr)))
-    for (i in seq_along(y))
-        plotSpectraMirror(x = query(x)[1L], y = y[i],
-                          xlab = xlab, ylab = ylab, main = main, ...)
-})
+setMethod(
+    "plotSpectraMirror", "MatchedSpectra",
+    function(x, xlab = "m/z", ylab = "intensity", main = "",
+             scalePeaks = FALSE, ...) {
+        if (length(query(x)) != 1)
+            stop("Length of 'query(x)' has to be 1.")
+        y <- x@target[x@matches$target_idx]
+        if (!length(y))
+            y <- Spectra(DataFrame(msLevel = 2L))
+        if (scalePeaks) {
+            x <- scalePeaks(query(x)[1L])
+            y <- scalePeaks(y)
+        } else x <- query(x)[1L]
+        par(mfrow = n2mfrow(length(y)))
+        for (i in seq_along(y))
+            plotSpectraMirror(x = x, y = y[i],
+                              xlab = xlab, ylab = ylab, main = main, ...)
+    })
 
-#' @importMethodsFrom Spectra setBackend
+#' @importMethodsFrom ProtGenerics setBackend
 #'
 #' @rdname MatchedSpectra
 #'

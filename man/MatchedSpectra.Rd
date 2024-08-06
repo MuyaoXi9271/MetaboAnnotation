@@ -4,6 +4,8 @@
 \alias{MatchedSpectra}
 \alias{MatchedSpectra-class}
 \alias{spectraVariables,MatchedSpectra-method}
+\alias{queryVariables,MatchedSpectra-method}
+\alias{targetVariables,MatchedSpectra-method}
 \alias{colnames,MatchedSpectra-method}
 \alias{$,MatchedSpectra-method}
 \alias{spectraData,MatchedSpectra-method}
@@ -21,6 +23,10 @@ MatchedSpectra(
 
 \S4method{spectraVariables}{MatchedSpectra}(object)
 
+\S4method{queryVariables}{MatchedSpectra}(object)
+
+\S4method{targetVariables}{MatchedSpectra}(object)
+
 \S4method{colnames}{MatchedSpectra}(x)
 
 \S4method{$}{MatchedSpectra}(x, name)
@@ -31,7 +37,14 @@ MatchedSpectra(
 
 \S4method{addProcessing}{MatchedSpectra}(object, FUN, ..., spectraVariables = character())
 
-\S4method{plotSpectraMirror}{MatchedSpectra}(x, xlab = "m/z", ylab = "intensity", main = "", ...)
+\S4method{plotSpectraMirror}{MatchedSpectra}(
+  x,
+  xlab = "m/z",
+  ylab = "intensity",
+  main = "",
+  scalePeaks = FALSE,
+  ...
+)
 
 \S4method{setBackend}{MatchedSpectra,MsBackend}(object, backend, ...)
 }
@@ -71,6 +84,10 @@ with \code{FUN}. See \code{\link[=Spectra]{Spectra()}} for details.}
 
 \item{main}{for \code{plotSpectraMirror}: an optional title for each plot.}
 
+\item{scalePeaks}{for \code{plotSpectraMirror}: \code{logical(1)} if peak intensities
+(per spectrum) should be scaled to a total sum of one (per spectrum) prior
+to plotting.}
+
 \item{backend}{for \code{setBackend}: instance of an object extending \link{MsBackend}.
 See help for \code{setBackend} in \code{\link[=Spectra]{Spectra()}} for more details.}
 }
@@ -85,18 +102,29 @@ return this type of object. By default, all data accessors work as
 returned for each \emph{query} spectrum with eventual duplicated entries (values)
 if the query spectrum matches more than one target spectrum.
 }
-\section{Creation and subsetting}{
+\section{Creation, subset and filtering}{
 
 
-\code{MatchedSpectra} objects can be created with the \code{MatchedSpectra} function
-providing the \code{query} and \code{target} \code{Spectra} as well as a \code{data.frame} with
-the
+\code{MatchedSpectra} objects are the result object from the \code{\link[=matchSpectra]{matchSpectra()}}.
+While generally not needed, \code{MatchedSpectra} objects can also be created
+with the \code{MatchedSpectra} function providing the \code{query} and \code{target}
+\code{Spectra} objects as well as a \code{data.frame} with the \emph{matches} between
+query and target elements. This data frame is expected to have columns
+\code{"query_idx"}, \code{"target_idx"} with the \code{integer} indices of query and
+target objects that are \emph{matched} and a column \code{"score"} with a \code{numeric}
+score for the match.
+
+\code{MatchedSpectra} objects can be subset using:
 \itemize{
 \item \code{[} subset the \code{MatchedSpectra} selecting \code{query} spectra to keep with
 parameter \code{i}. The \code{target} spectra will by default be returned as-is.
 \item \code{pruneTarget} \emph{cleans} the \code{MatchedSpectra} object by removing non-matched
 target spectra.
 }
+
+In addition, \code{MatchedSpectra} can be filtered with any of the filtering
+approaches defined for \code{\link[=Matched]{Matched()}} objects: \code{\link[=SelectMatchesParam]{SelectMatchesParam()}},
+\code{\link[=TopRankedMatchesParam]{TopRankedMatchesParam()}} or \code{\link[=ScoreThresholdParam]{ScoreThresholdParam()}}.
 }
 
 \section{Extracting data}{
@@ -114,6 +142,8 @@ spectra that don't match any target spectra. See examples below for more
 details.
 \item \code{length} returns the number of \strong{query} spectra.
 \item \code{matchedData} same as \code{spectraData} below.
+\item \code{query} returns the \emph{query} \code{Spectra}.
+\item \code{queryVariables} returns the \code{spectraVariables} of \emph{query}.
 \item \code{spectraData} returns spectra variables from the query and/or target
 \code{Spectra} as a \code{DataFrame}. Parameter \code{columns} allows to define which
 variables should be returned (defaults to
@@ -131,7 +161,8 @@ and \emph{target} spectra. The prefix \code{"target_"} is used to label spectra
 variables of target spectra (e.g. the name of the spectra variable for the
 MS level of target spectra is called \code{"target_msLevel"}).
 \item \code{target} returns the \emph{target} \code{Spectra}.
-\item \code{query} returns the \emph{query} \code{Spectra}.
+\item \code{targetVariables} returns the \code{spectraVariables} of \emph{target} (prefixed
+with \code{"target_"}).
 \item \code{whichTarget} returns an \code{integer} with the indices of the spectra in
 \emph{target} that match at least on spectrum in \emph{query}.
 \item \code{whichQuery} returns an \code{integer} with the indices of the spectra in
@@ -148,8 +179,10 @@ MS level of target spectra is called \code{"target_msLevel"}).
 information.
 \item \code{plotSpectraMirror}: creates a mirror plot between the query and each
 matching target spectrum. Can only be applied to a \code{MatchedSpectra} with a
-single query spectrum. Additional plotting parameters can be passed through
-\code{...}.
+single query spectrum. Setting parameter \code{scalePeaks = TRUE} will scale
+the peak intensities per spectrum to a total sum of one for a better
+graphical visualization. Additional plotting parameters can be passed
+through \code{...}.
 \item \code{setBackend}: allows to change the \emph{backend} of both the query and target
 \code{\link[=Spectra]{Spectra()}} object. The function will return a \code{MatchedSpectra} object with
 the query and target \code{Spectra} changed to the specified \code{backend}, which
