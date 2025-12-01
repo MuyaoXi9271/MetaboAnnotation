@@ -1,4 +1,35 @@
+# MetaboAnnotation 1.13
+
+## Changes in 1.13.3
+
+- Expand documentation for `CompareSpectraParam` to also mention use of
+  *msentropy* or GNPS-like similarity calculation.
+
+## Changes in 1.13.2
+
+- For `plotSpectraMirror,MatchedSpectra` method, we now pass the available
+  `ppm` and `tolerance` value that were used in the creation of the object.
+
+## Changes in 1.13.1
+
+- Add parameter `matchedPeaksCount` to `CompareSpectraParam` that enables
+  reporting of the number of matched peaks for `matchSpectra()` with
+  `CompareSpectraParam`. The result are reported in a column
+  `"matched_peaks_count"`.
+
+# MetaboAnnotation 1.11
+
+## Changes in 1.11.1
+
+- Fix reporting of matched peaks with `MatchForwardReverseParam` and
+  *gnps*-matching/similarity calculation (issue
+  [#119](https://github.com/rformassspectrometry/MetaboAnnotation/issues/119)).
+
 # MetaboAnnotation 1.9
+
+## Changes in 1.9.2
+
+- Fix missing ProtGenerics dependency.
 
 ## Changes in 1.9.1
 

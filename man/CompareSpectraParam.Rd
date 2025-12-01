@@ -29,6 +29,7 @@ CompareSpectraParam(
   THRESHFUN = function(x) which(x >= 0.7),
   toleranceRt = Inf,
   percentRt = 0,
+  matchedPeaksCount = FALSE,
   ...
 )
 
@@ -74,10 +75,11 @@ MatchForwardReverseParam(
 )
 }
 \arguments{
-\item{query}{for \code{matchSpectra}: \link{Spectra} object with the query spectra.}
+\item{query}{for \code{matchSpectra}: \link[Spectra:Spectra]{Spectra::Spectra} object with the query
+spectra.}
 
-\item{target}{for \code{matchSpectra}: \link{Spectra}, \link{CompDb} or object extending
-\link{CompAnnotationSource} (such as \link{CompDbSource}) with
+\item{target}{for \code{matchSpectra}: \link[Spectra:Spectra]{Spectra::Spectra}, \link[CompoundDb:CompDb]{CompoundDb::CompDb}
+or object extending \link{CompAnnotationSource} (such as \link{CompDbSource}) with
 the target (reference) spectra to compare \code{query} against.}
 
 \item{param}{for \code{matchSpectra}: parameter object (such as
@@ -95,8 +97,8 @@ back to the original \code{Spectra} object if the \code{MatchedSpectra} object g
 subsetted/processed.}
 
 \item{MAPFUN}{\code{function} used to map peaks between the compared spectra.
-Defaults for \code{CompareSpectraParam} to \code{\link[=joinPeaks]{joinPeaks()}}. See
-\code{\link[=compareSpectra]{compareSpectra()}} for details.}
+Defaults for \code{CompareSpectraParam} to \code{\link[Spectra:joinPeaks]{Spectra::joinPeaks()}}. See
+\code{\link[Spectra:compareSpectra]{Spectra::compareSpectra()}} for details.}
 
 \item{tolerance}{\code{numeric(1)} for an absolute maximal accepted difference
 between m/z values. This will be used in \code{compareSpectra} as well as for
@@ -131,7 +133,7 @@ target spectra are considered \emph{matching}. Defaults to
 all target spectra matching a query spectrum with a similarity higher or
 equal than \code{0.7}. Any function that takes a numeric vector with similarity
 scores from the comparison of a query spectrum with all target spectra (as
-returned by \code{\link[=compareSpectra]{compareSpectra()}}) as input and returns a
+returned by \code{\link[Spectra:compareSpectra]{Spectra::compareSpectra()}}) as input and returns a
 \code{logical} vector (same dimensions as the similarity scores) or an integer
 with the matches is supported.}
 
@@ -152,8 +154,14 @@ time-based filter is not considered. Thus, to consider the \code{percentRt}
 parameter, \code{toleranceRt} should be set to a value different than that.
 See help of \code{CompareSpectraParam} above for more information.}
 
+\item{matchedPeaksCount}{\code{logical(1)} for \code{CompareSpectraParam()}: whether
+also the number of matching peaks should be reported (in column
+\code{"matched_peaks_count"}). This number represents the number of peaks
+reported \emph{matching} by the \code{MAPFUN}.}
+
 \item{...}{for \code{CompareSpectraParam}: additional parameters passed along
-to the \code{\link[=compareSpectra]{compareSpectra()}} call.}
+to the \code{\link[Spectra:compareSpectra]{Spectra::compareSpectra()}} call, including eventual additional
+parameters of the selected mapping or similarity calculation functions.}
 
 \item{THRESHFUN_REVERSE}{for \code{MatchForwardReverseParam}: optional additional
 \emph{thresholding function} to filter the results on the reverse score. If
@@ -180,8 +188,9 @@ calculation between each query spectrum against each target spectrum.
 Parameters \code{query} and \code{target} can be used to define the query and target
 spectra, respectively, while parameter \code{param} allows to define and configure
 the similarity calculation and matching condition. Parameter \code{query} takes
-a \link{Spectra} object while \code{target} can be either a \link{Spectra} object, a
-\link{CompDb} (reference library) object defined in the \code{CompoundDb} package or
+a \link[Spectra:Spectra]{Spectra::Spectra} object while \code{target} can be either a
+\link[Spectra:Spectra]{Spectra::Spectra} object, a \link[CompoundDb:CompDb]{CompoundDb::CompDb} (reference library)
+object defined in the \code{CompoundDb} package or
 a \link{CompAnnotationSource} (e.g. a \code{\link[=CompDbSource]{CompDbSource()}})
 with the reference or connection information to a supported annotation
 resource).
@@ -192,16 +201,32 @@ provided in the vignette.
 Currently supported parameter objects defining the matching are:
 \itemize{
 \item \code{CompareSpectraParam}: the \emph{generic} parameter object allowing to set all
-settings for the \code{\link[=compareSpectra]{compareSpectra()}} call that is used to perform the
-similarity calculation. This includes \code{MAPFUN} and \code{FUN} defining the
-peak-mapping and similarity calculation functions and \code{ppm} and \code{tolerance}
-to define an acceptable difference between m/z values of the compared
-peaks. Additional parameters to the \code{compareSpectra} call
-can be passed along with \code{...}. See the help of \code{\link[=Spectra]{Spectra()}} for more
-information on these parameters. Parameters \code{requirePrecursor} (default
-\code{TRUE}) and \code{requirePrecursorPeak} (default \code{FALSE}) allow to pre-filter
-the target spectra prior to the actual similarity calculation for each
-individual query spectrum. Target spectra can also be pre-filtered based on
+settings for the \code{\link[Spectra:compareSpectra]{Spectra::compareSpectra()}} call that is used to
+perform the similarity calculation.
+This includes \code{MAPFUN} and \code{FUN} defining the peak-mapping and similarity
+calculation functions and \code{ppm} and \code{tolerance} to define an acceptable
+difference between m/z values of the compared peaks. Parameter
+\code{matchedPeaksCount} is also passed to \code{compareSpectra()} and, if set to
+\code{TRUE} (default is \code{FALSE}) will report the number of peaks defined to be
+\emph{matching} by the \code{MAPFUN}.
+Additional parameters to the \code{compareSpectra} call can be passed along
+with \code{...}. See the help of \code{\link[Spectra:Spectra]{Spectra::Spectra()}} for more information on
+these parameters. Importantly, if \emph{msentropy} or a GNPS-like similarity
+calculation is used, \code{MAPFUN} should be selected accordingly (see section
+\emph{Using alternative spectra similarity functions} in the package vignette
+for more information).
+By default, parameters \code{ppm} and \code{tolerance} are passed to the similarity
+calculation function, but if this function uses different parameters
+(e.g., \code{msentropy_similarity()} uses \code{ms2_tolerance_in_ppm} instead of
+\code{ppm}), these should be submitted to the \code{CompareSpectraParam()} function
+throught the \code{...} parameter.
+Parameters \code{requirePrecursor} (default \code{TRUE}) and \code{requirePrecursorPeak}
+(default \code{FALSE}) allow to pre-filter the target spectra prior to the
+actual similarity calculation for each individual query spectrum.
+Parameters \code{ppm} and \code{tolerance} are also used to define the maximal
+acceptable difference in precursor m/z if \code{requirePrecursor} or
+\code{requirePrecursorPeak} are set to \code{TRUE}.
+Target spectra can also be pre-filtered based on
 retention time if parameter \code{toleranceRt} is set to a value different than
 the default \code{toleranceRt = Inf}. Only target spectra with a retention time
 within the query's retention time +/- (\code{toleranceRt} + \code{percentRt}\% of the
@@ -220,7 +245,9 @@ the similarity scores to define which matches to report. See below for more
 details.
 \item \code{MatchForwardReverseParam}: performs spectra matching as with
 \code{CompareSpectraParam} but reports, similar to MS-DIAL, also the \emph{reverse}
-similarity score and the \emph{presence ratio}. In detail, the matching of query
+similarity score and the \emph{presence ratio}. Please refer to the
+documentation of \code{CompareSpectraParam} for explanation of the parameters.
+With \code{MatchForwardReverseParam}, the matching of query
 spectra to target spectra is performed by considering all peaks from the
 query and all peaks from the target (reference) spectrum (i.e. \emph{forward}
 matching using an \emph{outer join}-based peak matching strategy). For matching

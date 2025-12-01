@@ -13,8 +13,9 @@
 #' Parameters `query` and `target` can be used to define the query and target
 #' spectra, respectively, while parameter `param` allows to define and configure
 #' the similarity calculation and matching condition. Parameter `query` takes
-#' a [Spectra] object while `target` can be either a [Spectra] object, a
-#' [CompDb] (reference library) object defined in the `CompoundDb` package or
+#' a [Spectra::Spectra] object while `target` can be either a
+#' [Spectra::Spectra] object, a [CompoundDb::CompDb] (reference library)
+#' object defined in the `CompoundDb` package or
 #' a [CompAnnotationSource] (e.g. a [CompDbSource()])
 #' with the reference or connection information to a supported annotation
 #' resource).
@@ -25,16 +26,32 @@
 #' Currently supported parameter objects defining the matching are:
 #'
 #' - `CompareSpectraParam`: the *generic* parameter object allowing to set all
-#'   settings for the [compareSpectra()] call that is used to perform the
-#'   similarity calculation. This includes `MAPFUN` and `FUN` defining the
-#'   peak-mapping and similarity calculation functions and `ppm` and `tolerance`
-#'   to define an acceptable difference between m/z values of the compared
-#'   peaks. Additional parameters to the `compareSpectra` call
-#'   can be passed along with `...`. See the help of [Spectra()] for more
-#'   information on these parameters. Parameters `requirePrecursor` (default
-#'   `TRUE`) and `requirePrecursorPeak` (default `FALSE`) allow to pre-filter
-#'   the target spectra prior to the actual similarity calculation for each
-#'   individual query spectrum. Target spectra can also be pre-filtered based on
+#'   settings for the [Spectra::compareSpectra()] call that is used to
+#'   perform the similarity calculation.
+#'   This includes `MAPFUN` and `FUN` defining the peak-mapping and similarity
+#'   calculation functions and `ppm` and `tolerance` to define an acceptable
+#'   difference between m/z values of the compared peaks. Parameter
+#'   `matchedPeaksCount` is also passed to `compareSpectra()` and, if set to
+#'   `TRUE` (default is `FALSE`) will report the number of peaks defined to be
+#'   *matching* by the `MAPFUN`.
+#'   Additional parameters to the `compareSpectra` call can be passed along
+#'   with `...`. See the help of [Spectra::Spectra()] for more information on
+#'   these parameters. Importantly, if *msentropy* or a GNPS-like similarity
+#'   calculation is used, `MAPFUN` should be selected accordingly (see section
+#'   *Using alternative spectra similarity functions* in the package vignette
+#'   for more information).
+#'   By default, parameters `ppm` and `tolerance` are passed to the similarity
+#'   calculation function, but if this function uses different parameters
+#'   (e.g., `msentropy_similarity()` uses `ms2_tolerance_in_ppm` instead of
+#'   `ppm`), these should be submitted to the `CompareSpectraParam()` function
+#'   throught the `...` parameter.
+#'   Parameters `requirePrecursor` (default `TRUE`) and `requirePrecursorPeak`
+#'   (default `FALSE`) allow to pre-filter the target spectra prior to the
+#'   actual similarity calculation for each individual query spectrum.
+#'   Parameters `ppm` and `tolerance` are also used to define the maximal
+#'   acceptable difference in precursor m/z if `requirePrecursor` or
+#'   `requirePrecursorPeak` are set to `TRUE`.
+#'   Target spectra can also be pre-filtered based on
 #'   retention time if parameter `toleranceRt` is set to a value different than
 #'   the default `toleranceRt = Inf`. Only target spectra with a retention time
 #'   within the query's retention time +/- (`toleranceRt` + `percentRt`% of the
@@ -54,7 +71,9 @@
 #'
 #' - `MatchForwardReverseParam`: performs spectra matching as with
 #'   `CompareSpectraParam` but reports, similar to MS-DIAL, also the *reverse*
-#'   similarity score and the *presence ratio*. In detail, the matching of query
+#'   similarity score and the *presence ratio*. Please refer to the
+#'   documentation of `CompareSpectraParam` for explanation of the parameters.
+#'   With `MatchForwardReverseParam`, the matching of query
 #'   spectra to target spectra is performed by considering all peaks from the
 #'   query and all peaks from the target (reference) spectrum (i.e. *forward*
 #'   matching using an *outer join*-based peak matching strategy). For matching
@@ -87,8 +106,13 @@
 #'   [MsCoreUtils::ndotproduct()] for details.
 #'
 #' @param MAPFUN `function` used to map peaks between the compared spectra.
-#'    Defaults for `CompareSpectraParam` to [joinPeaks()]. See
-#'    [compareSpectra()] for details.
+#'    Defaults for `CompareSpectraParam` to [Spectra::joinPeaks()]. See
+#'    [Spectra::compareSpectra()] for details.
+#'
+#' @param matchedPeaksCount `logical(1)` for `CompareSpectraParam()`: whether
+#'    also the number of matching peaks should be reported (in column
+#'    `"matched_peaks_count"`). This number represents the number of peaks
+#'    reported *matching* by the `MAPFUN`.
 #'
 #' @param param for `matchSpectra`: parameter object (such as
 #'   `CompareSpectraParam`) defining the settings for the matching.
@@ -107,7 +131,8 @@
 #'   difference between m/z values. This will be used in `compareSpectra` as
 #'   well as for eventual precursor m/z matching.
 #'
-#' @param query for `matchSpectra`: [Spectra] object with the query spectra.
+#' @param query for `matchSpectra`: [Spectra::Spectra] object with the query
+#'   spectra.
 #'
 #' @param requirePrecursor `logical(1)` whether only target spectra are
 #'   considered in the similarity calculation with a precursor m/z that matches
@@ -130,8 +155,8 @@
 #'     It can also be `character(1)` if the two names are the same.
 #'     Defaults to `rtColname = c("rtime", "rtime")`.
 #'
-#' @param target for `matchSpectra`: [Spectra], [CompDb] or object extending
-#'   [CompAnnotationSource] (such as [CompDbSource]) with
+#' @param target for `matchSpectra`: [Spectra::Spectra], [CompoundDb::CompDb]
+#'   or object extending [CompAnnotationSource] (such as [CompDbSource]) with
 #'   the target (reference) spectra to compare `query` against.
 #'
 #' @param tolerance `numeric(1)` for an absolute maximal accepted difference
@@ -151,7 +176,7 @@
 #'   all target spectra matching a query spectrum with a similarity higher or
 #'   equal than `0.7`. Any function that takes a numeric vector with similarity
 #'   scores from the comparison of a query spectrum with all target spectra (as
-#'   returned by [compareSpectra()]) as input and returns a
+#'   returned by [Spectra::compareSpectra()]) as input and returns a
 #'   `logical` vector (same dimensions as the similarity scores) or an integer
 #'   with the matches is supported.
 #'
@@ -160,7 +185,8 @@
 #'   specified the same format than `THRESHFUN` is expected.
 #'
 #' @param ... for `CompareSpectraParam`: additional parameters passed along
-#'   to the [compareSpectra()] call.
+#'   to the [Spectra::compareSpectra()] call, including eventual additional
+#'   parameters of the selected mapping or similarity calculation functions.
 #'
 #' @author Johannes Rainer, Michael Witting
 #'
@@ -278,7 +304,8 @@ setClass("CompareSpectraParam",
              requirePrecursorPeak = "logical",
              THRESHFUN = "function",
              toleranceRt = "numeric",
-             percentRt = "numeric"
+             percentRt = "numeric",
+             matchedPeaksCount = "logical"
              ),
          contains = "Param",
          prototype = prototype(
@@ -291,7 +318,8 @@ setClass("CompareSpectraParam",
              requirePrecursorPeak = FALSE,
              THRESHFUN = function(x) which(x >= 0.7),
              toleranceRt = Inf,
-             percentRt = 0
+             percentRt = 0,
+             matchedPeaksCount = FALSE
          ),
          validity = function(object) {
              msg <- NULL
@@ -306,6 +334,13 @@ setClass("CompareSpectraParam",
                  msg <- c("'percentRt' has to be positive")
              msg
          })
+
+#' @importFrom methods .hasSlot
+.matched_peaks_count <- function(x) {
+    if (.hasSlot(x, "matchedPeaksCount"))
+        x@matchedPeaksCount
+    else FALSE
+}
 
 setClass("MatchForwardReverseParam",
          slots = c(THRESHFUN_REVERSE = "ANY"),
@@ -333,12 +368,14 @@ CompareSpectraParam <- function(MAPFUN = joinPeaks, tolerance = 0, ppm = 5,
                                 requirePrecursor = TRUE,
                                 requirePrecursorPeak = FALSE,
                                 THRESHFUN = function(x) which(x >= 0.7),
-                                toleranceRt = Inf, percentRt = 0, ...) {
+                                toleranceRt = Inf, percentRt = 0,
+                                matchedPeaksCount = FALSE, ...) {
     new("CompareSpectraParam", MAPFUN = force(MAPFUN), tolerance = tolerance,
         ppm = ppm, FUN = force(FUN), requirePrecursor = requirePrecursor[1L],
         requirePrecursorPeak = requirePrecursorPeak[1L],
         THRESHFUN = force(THRESHFUN), toleranceRt = toleranceRt,
-        percentRt = percentRt, dots = list(...))
+        percentRt = percentRt, matchedPeaksCount = matchedPeaksCount,
+        dots = list(...))
 }
 
 #' @rdname CompareSpectraParam
@@ -468,6 +505,7 @@ setMethod(
                      THRESHFUN = param@THRESHFUN,
                      precMz = param@requirePrecursor,
                      precMzPeak = param@requirePrecursorPeak,
+                     matchedPeaksCount = .matched_peaks_count(param),
                      toleranceRt = toleranceRt,
                      percentRt = percentRt,
                      query_rt_col = rtColname[1L],
@@ -488,7 +526,14 @@ setMethod(
 #' @noRd
 .match_spectra_without_precursor <- function(query, target, param) {
     parlist <- .compare_spectra_parms_list(param)
-    cor <- do.call(compareSpectra, c(list(x = query, y = target), parlist))
+    mpc <- .matched_peaks_count(param)
+    cor <- do.call(compareSpectra,
+                   c(list(x = query, y = target, matchedPeaksCount = mpc),
+                     parlist))
+    if (mpc) {
+        pc <- cor[, , 2L]
+        cor <- cor[, , 1L]
+    }
     res <- lapply(seq_len(nrow(cor)), function(i) param@THRESHFUN(cor[i, ]))
     if (is.logical(res[[1L]]))
         res <- lapply(res, which)
@@ -497,6 +542,8 @@ setMethod(
         qidx <- rep(seq_along(res), lengths(res))
         maps <- data.frame(query_idx = qidx, target_idx = tidx,
                            score = cor[cbind(qidx, tidx)])
+        if (mpc)
+            maps$matched_peaks_count <- pc[cbind(qidx, tidx)]
     }
     else maps <- data.frame(query_idx = integer(), target_idx = integer(),
                             score = numeric())
@@ -515,7 +562,8 @@ setMethod(
 .get_matches_spectra <- function(i, query, target, parlist, THRESHFUN, precMz,
                                  precMzPeak, toleranceRt = Inf,
                                  percentRt = 0, sn, query_rt_col = "rtime",
-                                 target_rt_col = "rtime") {
+                                 target_rt_col = "rtime",
+                                 matchedPeaksCount = FALSE) {
     qi <- query[i]
     if (is.finite(toleranceRt[i])) {
         rt_qi <- spectraData(qi, query_rt_col)[, 1L]
@@ -540,16 +588,33 @@ setMethod(
     if (!length(target))
         return(NULL)
     cor <- base::do.call(compareSpectra,
-                         c(list(x = qi, y = target, SIMPLIFY = FALSE), parlist))
-    keep <- THRESHFUN(as.vector(cor))
-    if (is.logical(keep))
-        keep <- which(keep)
-    kl <- length(keep)
-    if (kl)
-        data.frame(query_idx = rep(i, kl),
-                   target_idx = base::match(spectraNames(target)[keep], sn),
-                   score = cor[keep])
-    else NULL
+                         c(list(x = qi, y = target, SIMPLIFY = FALSE,
+                                matchedPeaksCount = matchedPeaksCount),
+                           parlist))
+    if (matchedPeaksCount) {
+    ## Handle matched peaks count.
+        keep <- THRESHFUN(as.vector(cor[, , 1L]))
+        if (is.logical(keep))
+            keep <- which(keep)
+        kl <- length(keep)
+        if (kl)
+            data.frame(query_idx = rep(i, kl),
+                       target_idx = base::match(spectraNames(target)[keep], sn),
+                       score = as.vector(cor[, , 1L])[keep],
+                       matched_peaks_count = as.integer(
+                           as.vector(cor[, , 2L])[keep]))
+        else NULL
+    } else {
+        keep <- THRESHFUN(as.vector(cor))
+        if (is.logical(keep))
+            keep <- which(keep)
+        kl <- length(keep)
+        if (kl)
+            data.frame(query_idx = rep(i, kl),
+                       target_idx = base::match(spectraNames(target)[keep], sn),
+                       score = cor[keep])
+        else NULL
+    }
 }
 
 #' @rdname CompareSpectraParam
@@ -576,10 +641,14 @@ setMethod(
         res@matches$matched_peaks_count <- rep(NA_real_, nm)
         parms_rv <- .compare_spectra_parms_list(param)
         parms_rv$type <- "right"
+        query_pmz <- precursorMz(query)
+        target_pmz <- precursorMz(target)
         for (i in seq_len(nm)) {
             spl <- c(
                 list(x = peaksData(query[res@matches$query_idx[i]])[[1L]],
-                     y = peaksData(target[res@matches$target_idx[i]])[[1L]]),
+                     y = peaksData(target[res@matches$target_idx[i]])[[1L]],
+                     xPrecursorMz = query_pmz[res@matches$query_idx[i]],
+                     yPrecursorMz = target_pmz[res@matches$target_idx[i]]),
                 parms_rv)
             map <- do.call(param@MAPFUN, spl)
             spl$x <- map$x

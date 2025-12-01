@@ -1,4 +1,5 @@
 library(Spectra)
+library(ProtGenerics)
 df1 <- DataFrame(
     msLevel = 2L, rtime = 1:10,
     spectrum_id = c("a", "b", "c", "d", "e", "f", "g", "h", "i", "j"))
@@ -139,6 +140,7 @@ test_that("spectraData,MatchedSpectra works", {
     expect_true(is(res, "DataFrame"))
     expect_true(nrow(res) == 0)
     expect_equal(colnames(res), spectraVariables(ms))
+    expect_equal(colnames(ms), colnames(res))
 
     ms <- MatchedSpectra(
         sp1, sp2, matches = data.frame(query_idx = c(1L, 1L, 2L, 4L, 4L, 4L),
@@ -226,6 +228,13 @@ test_that("plotSpectraMirror throws an error", {
                                                         score = numeric()))
     plotSpectraMirror(ms[1])
     plotSpectraMirror(ms[1], scalePeaks = TRUE)
+
+    ## test the helper function
+    dots <- list(ppm = 15)
+    pl <- as.list(param <- CompareSpectraParam())
+    expect_equal(.res_setting(dots = dots, pl, "ppm", 20), 15)
+    expect_equal(.res_setting(list(), pl, "ppm", 20), 5)
+    expect_equal(.res_setting(list(), list(), "ppm", 20), 20)
 })
 
 test_that("addProcessing works", {

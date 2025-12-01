@@ -36,6 +36,8 @@ test_that(".valid_threshfun works", {
 
     res <- .valid_threshfun(function(z) TRUE)
     expect_match(res, "logical")
+
+    expect_match(.valid_threshfun(function(z) -1L), "values between 1 and")
 })
 
 test_that(".compare_spectra, .compare_spectra_without_precursor work", {
@@ -45,6 +47,10 @@ test_that(".compare_spectra, .compare_spectra_without_precursor work", {
     res <- .match_spectra(pest_ms2, minimb, prm, BPPARAM = SerialParam())
     res_2 <- .match_spectra_without_precursor(pest_ms2, minimb, prm)
     expect_equal(res@matches, res_2@matches)
+
+    res_3 <- .match_spectra(pest_ms2, minimb, prm, BPPARAM = SerialParam(),
+                            rtColname = "rtime")
+    expect_equal(res@matches, res_3@matches)
 
     ## returns integer.
     prm <- CompareSpectraParam(requirePrecursor = FALSE,
@@ -70,6 +76,27 @@ test_that(".get_matches_spectra, matchSpectra,CompareSpectraParam works", {
     expect_equal(length(unique(res$target_spectrum_id)), 11)
     expect_true(any(spectraVariables(res) == ".original_query_index"))
     expect_equal(res@query$.original_query_index, seq_along(pest_ms2))
+    expect_warning(matchSpectra(res@query, minimb, csp), "Overwriting")
+
+    res_2 <- matchSpectra(
+        pest_ms2, minimb, CompareSpectraParam(
+                              requirePrecursor = FALSE,
+                              THRESHFUN = function(x) which.max(x),
+                              matchedPeaksCount = TRUE))
+    expect_equal(res@matches$query_idx, res_2@matches$query_idx)
+    expect_equal(res@matches$target_idx, res_2@matches$target_idx)
+    expect_equal(res@matches$score, res_2@matches$score)
+    expect_equal(colnames(res_2@matches), c("query_idx", "target_idx", "score",
+                                            "matched_peaks_count"))
+
+    res_3 <- matchSpectra(
+        pest_ms2, minimb, CompareSpectraParam(
+                              requirePrecursor = TRUE,
+                              THRESHFUN = function(x) which.max(x),
+                              matchedPeaksCount = TRUE))
+    expect_equal(colnames(res_3@matches), c("query_idx", "target_idx", "score",
+                                            "matched_peaks_count"))
+
     res <- matchSpectra(pest_ms2, minimb, csp, addOriginalQueryIndex = FALSE)
     expect_false(any(spectraVariables(res) == ".original_query_index"))
 
@@ -82,6 +109,29 @@ test_that(".get_matches_spectra, matchSpectra,CompareSpectraParam works", {
         precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2))
     expect_true(is.data.frame(res))
     expect_equal(res$query_idx, 2L)
+    ## With matchedPeaksCount
+    res_2 <- .get_matches_spectra(
+        2, pest_ms2, mb2,
+        .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = csp@requirePrecursor,
+        precMzPeak = csp@requirePrecursorPeak, sn = spectraNames(mb2),
+        matchedPeaksCount = TRUE
+        )
+    expect_true(is.data.frame(res_2))
+    expect_equal(res_2$query_idx, 2L)
+    expect_equal(colnames(res_2),
+                 c("query_idx", "target_idx", "score", "matched_peaks_count"))
+    expect_equal(res$score, res_2$score)
+    expect_equal(res$target_idx, res_2$target_idx)
+    expect_true(res_2$matched_peaks_count > 0)
+
+    res <- .get_matches_spectra(
+        2, pest_ms2, mb2, .compare_spectra_parms_list(csp),
+        csp@THRESHFUN, precMz = FALSE, precMzPeak = TRUE,
+        sn = spectraNames(mb2))
+    expect_true(is.data.frame(res))
+    expect_equal(res$query_idx, 2L)
+    expect_equal(res$target_idx, 73L)
 
     csp <- CompareSpectraParam(requirePrecursor = TRUE,
                                THRESHFUN = function(x) which.max(x))
@@ -216,6 +266,35 @@ test_that("matchSpectra,MatchForwardReverseParam works", {
     res_2 <- matchSpectra(pest_ms2, minimb, mp)
     expect_true(all(res_2@matches$reverse_score > 0.9))
     expect_equal(unique(res_2@matches$query_idx), c(2, 4, 8))
+
+    a <- data.frame(
+        precursorMz = c(623.1618, 609.1825)
+    )
+    a$mz <- list(
+        c(300.0276, 315.0511),
+        c(242.0585, 286.0483, 301.0718)
+    )
+    a$intensity <- list(
+        c(20, 100),
+        c(1, 10, 100)
+    )
+    s <- Spectra(a)
+    res <- matchSpectra(
+        s[1], s[2],
+        param =  MatchForwardReverseParam(
+            requirePrecursor = FALSE, tolerance = 0.01,
+            THRESHFUN = function(x) which(x >= 0),
+            MAPFUN = joinPeaksGnps, FUN = MsCoreUtils::gnps))
+    expect_equal(res@matches$matched_peaks_count, 2)
+    ## Check that res@matches is not all 0
+
+    res <- matchSpectra(
+        s[1], s[2],
+        param =  MatchForwardReverseParam(
+            requirePrecursor = FALSE, tolerance = 1.1,
+            THRESHFUN = function(x) which(x >= 0)))
+    expect_equal(res@matches$matched_peaks_count, 1)
+    expect_equal(res@matches$presence_ratio, 1/3)
 })
 
 test_that("matchSpectra,Spectra,CompDb works", {
@@ -238,4 +317,16 @@ test_that("matchSpectra,Spectra,CompDb works", {
     expect_error(
         matchSpectra(pest_ms2, cdb, CompareSpectraParam(toleranceRt = 1),
                      rtColname = c("other", "other")), "not available")
+})
+
+test_that(".check_bpparam works", {
+    res <- .check_bpparam(pest_ms2, minimb, SnowParam())
+    expect_s4_class(res, "SnowParam")
+})
+
+test_that(".matched_peaks_count works", {
+    p <- CompareSpectraParam()
+    expect_false(.matched_peaks_count(p))
+    p@matchedPeaksCount <- TRUE
+    expect_true(.matched_peaks_count(p))
 })
