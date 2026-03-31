@@ -1,3 +1,19 @@
+# MetaboAnnotation 1.15
+
+## Changes in 1.15.3
+
+- Use `Spectra::rbindlistWithRownames()` to expand on the changes introduced in
+  version 1.15.2 supporting also `data.frame`s with row names.
+
+## Changes in 1.15.2
+
+- Use `data.table::rbindlist()` for merging lists of `data.frame`'s to improve
+  performance.
+
+## Changes in 1.15.1
+
+- Remove dependency on the *msdata* package: get test data from *MsDataHub*.
+
 # MetaboAnnotation 1.13
 
 ## Changes in 1.13.3

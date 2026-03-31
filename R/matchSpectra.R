@@ -211,8 +211,9 @@
 #' @examples
 #'
 #' library(Spectra)
-#' library(msdata)
-#' fl <- system.file("TripleTOF-SWATH", "PestMix1_DDA.mzML", package = "msdata")
+#' library(MsDataHub)
+#' ## Load a test file from *MsDataHub*
+#' fl <- MsDataHub::PestMix1_DDA.mzML()
 #' pest_ms2 <- filterMsLevel(Spectra(fl), 2L)
 #'
 #' ## subset to selected spectra.
@@ -468,6 +469,8 @@ setMethod(
 #'
 #' @rdname CompareSpectraParam
 #'
+#' @importFrom Spectra rbindlistWithRownames
+#'
 #' @export
 setMethod(
     "matchSpectra", signature(query = "Spectra", target = "CompDb",
@@ -511,7 +514,7 @@ setMethod(
                      query_rt_col = rtColname[1L],
                      target_rt_col = rtColname[2L],
                      sn = snames, BPPARAM = BPPARAM)
-    maps <- do.call(rbind.data.frame, maps)
+    maps <- rbindlistWithRownames(maps, use.names = FALSE)
     if (!nrow(maps))
         maps <- data.frame(query_idx = integer(),
                            target_idx = integer(),
